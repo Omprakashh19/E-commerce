@@ -7,6 +7,7 @@ using SimpleShop.Services.Interfaces;
 namespace SimpleShop.Controllers
 {
 
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class ProductController : ControllerBase
@@ -17,14 +18,14 @@ namespace SimpleShop.Controllers
         {
             _productService = productService;
         }
-
+        
         [HttpGet("GetAllProducts")]
         public async Task<IActionResult> GetAll()
         {
             var products = await _productService.GetAllAsync();
             return Ok(products);
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPost("AddProducts")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Add([FromForm] ProductDto dto)
@@ -39,7 +40,7 @@ namespace SimpleShop.Controllers
                 return BadRequest(new { status = false, message = ex.Message });
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdateProduct/{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromForm] ProductDto dto)
@@ -53,6 +54,7 @@ namespace SimpleShop.Controllers
             return Ok(new { status = true, message = "Product updated successfully" });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("DeleteProduct/{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
@@ -90,7 +92,7 @@ namespace SimpleShop.Controllers
             return Ok(new { status = true, data = result });
         }
 
-
+        [Authorize(Roles = "Admin")]
         [HttpGet("lowstock")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetLowStockProducts([FromQuery] int threshold = 5)

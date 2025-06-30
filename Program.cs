@@ -32,6 +32,8 @@ builder.Services.AddTransient<IWishlistRepository, WishlistRepository>();
 builder.Services.AddTransient<IWishlistService, WishlistService>();
 builder.Services.AddTransient<IProductReviewService, ProductReviewService>();
 builder.Services.AddTransient<IProductReviewRepository, ProductReviewRepository>();
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+
 
 
 

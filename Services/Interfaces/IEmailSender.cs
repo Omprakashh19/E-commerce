@@ -1,4 +1,7 @@
-public interface IEmailSender
+namespace SimpleShop.Services.Interfaces
 {
-    Task SendEmailAsync(string toEmail, string subject, string body);
+    public interface IEmailSender
+    {
+        Task SendEmailAsync(string toEmail, string subject, string body);
+    }
 }

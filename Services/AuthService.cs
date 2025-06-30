@@ -13,22 +13,27 @@ namespace SimpleShop.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _config;
+        private readonly IEmailSender _emailSender;
 
-        public AuthService(IUserRepository userRepository, IConfiguration config)
+        public AuthService(IUserRepository userRepository, IConfiguration config, IEmailSender emailSender)
         {
             _userRepository = userRepository;
             _config = config;
+            _emailSender = emailSender;
         }
 
         public async Task<string?> RegisterAsync(RegisterDto dto)
         {
-            var existing = await _userRepository.GetByUsernameAsync(dto.Username);
+           
+            var existing = await _userRepository.GetByEmailAsync(dto.Email);
             if (existing != null)
                 return null;
+
 
             var user = new User
             {
                 Username = dto.Username,
+                Email = dto.Email,
                 PasswordHash = dto.Password, // 🔐 Hash this in real apps (e.g., BCrypt)
                 Role = dto.Role
             };
@@ -39,10 +44,11 @@ namespace SimpleShop.Services
 
         public async Task<LoginResult> LoginAsync(LoginDto dto)
         {
-            var user = await _userRepository.GetByUsernameAsync(dto.Username);
+           
+            var user = await _userRepository.GetByEmailAsync(dto.Email); // Email is in Username field
             if (user == null)
             {
-                return new LoginResult { ErrorMessage = "Wrong username" };
+                return new LoginResult { ErrorMessage = "Wrong email" };
             }
 
             if (user.PasswordHash != dto.Password) // 🔐 Replace with hash verification in real apps
@@ -51,6 +57,12 @@ namespace SimpleShop.Services
             }
 
             var token = GenerateToken(user);
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "LoginSuccess.html");
+            string htmlBody = await File.ReadAllTextAsync(templatePath);
+
+            htmlBody = htmlBody.Replace("{{USERNAME}}", user.Username);
+            await _emailSender.SendEmailAsync(user.Email, "Login Successful", htmlBody);
             return new LoginResult { Token = token };
         }
 
@@ -60,6 +72,7 @@ namespace SimpleShop.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // 👈 Required to extract userId
                 new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role)
             };
 
