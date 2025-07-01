@@ -29,5 +29,11 @@ namespace SimpleShop.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         }
 
+          public async Task UpdateUserAsync(User user) // ✅ This must exist!
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+        }
+
     }
 }

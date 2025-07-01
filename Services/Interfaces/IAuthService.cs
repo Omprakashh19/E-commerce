@@ -6,5 +6,7 @@ namespace SimpleShop.Services.Interfaces
     {
         Task<string?> RegisterAsync(RegisterDto dto);
         Task<LoginResult> LoginAsync(LoginDto dto);
+        Task<bool> ForgotPasswordAsync(string email);
+        Task<bool> ResetPasswordAsync(string token, string newPassword);
     }
 }

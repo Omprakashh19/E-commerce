@@ -8,14 +8,19 @@ using SimpleShop.Repositories;
 using SimpleShop.Repositories.Interfaces;
 using SimpleShop.Services;
 using SimpleShop.Services.Interfaces;
+using SimpleShop.Helpers;
+using SimpleShop.Helpers.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DB
+// 1️⃣ Database
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), new MySqlServerVersion(new Version(8, 0, 36))));
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        new MySqlServerVersion(new Version(8, 0, 36))
+    ));
 
-// DI
+// 2️⃣ DI (Repositories + Services)
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IAuthService, AuthService>();
 builder.Services.AddTransient<IProductRepository, ProductRepository>();
@@ -33,37 +38,36 @@ builder.Services.AddTransient<IWishlistService, WishlistService>();
 builder.Services.AddTransient<IProductReviewService, ProductReviewService>();
 builder.Services.AddTransient<IProductReviewRepository, ProductReviewRepository>();
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+builder.Services.AddTransient<IPasswordService, PasswordService>();
+builder.Services.AddTransient<IPasswordResetRepository, PasswordResetRepository>();
+builder.Services.AddTransient<IReturnRepository, ReturnRepository>();
+builder.Services.AddTransient<IReturnService, ReturnService>();
 
-
-
-
-
-
-// JWT
+// 3️⃣ Add Authentication (JWT)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opts =>
+    .AddJwtBearer(options =>
     {
-        opts.TokenValidationParameters = new TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+            )
         };
     });
 
-// Controllers
-builder.Services.AddControllers()
+// 4️⃣ Add Controllers & Razor Views
+builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.WriteIndented = true; // Optional for pretty print
+        options.JsonSerializerOptions.WriteIndented = true;
     });
 
-
-
-// Swagger with JWT support
+// 5️⃣ Add Swagger with JWT support
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -76,7 +80,7 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer",
         BearerFormat = "JWT",
-        Description = "Enter 'Bearer' followed by your JWT token.\nExample: Bearer eyJhbGciOiJIUzI1..."
+        Description = "Enter 'Bearer' [space] and then your valid JWT token.\nExample: Bearer eyJhbGciOiJIUzI1..."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -84,26 +88,36 @@ builder.Services.AddSwaggerGen(options =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
             },
-            new string[] { }
+            new string[] {}
         }
     });
 });
 
+// ✅ Build app
 var app = builder.Build();
 
-// Swagger UI
+// 6️⃣ Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Middleware
+app.UseStaticFiles();
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();

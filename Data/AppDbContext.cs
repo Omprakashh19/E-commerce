@@ -14,6 +14,7 @@ namespace SimpleShop.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<User> Users => Set<User>();
+        public DbSet<PasswordReset> PasswordResets { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<ProductImage> ProductImages { get; set; }
@@ -27,6 +28,9 @@ namespace SimpleShop.Data
         public DbSet<WishList> wishlists { get; set; }
         public DbSet<ProductReview> productReviews { get; set; }
         public DbSet<ProductReviewImages> productReviewImages { get; set; } = null!;
+        public DbSet<ReturnRequest> ReturnRequests { get; set; }
+
+
 
 
     }

@@ -1,11 +1,13 @@
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using SimpleShop.DTOs;
 using SimpleShop.Models;
 using SimpleShop.Repositories.Interfaces;
 using SimpleShop.Services.Interfaces;
+using SimpleShop.Helpers.Interfaces;
 
 namespace SimpleShop.Services
 {
@@ -14,27 +16,34 @@ namespace SimpleShop.Services
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _config;
         private readonly IEmailSender _emailSender;
+        private readonly IPasswordService _passwordService;
+        private readonly IPasswordResetRepository _passwordResetRepository;
 
-        public AuthService(IUserRepository userRepository, IConfiguration config, IEmailSender emailSender)
+        public AuthService(
+            IUserRepository userRepository,
+            IConfiguration config,
+            IEmailSender emailSender,
+            IPasswordService passwordService,
+            IPasswordResetRepository passwordResetRepository)
         {
             _userRepository = userRepository;
             _config = config;
             _emailSender = emailSender;
+            _passwordService = passwordService;
+            _passwordResetRepository = passwordResetRepository;
         }
 
         public async Task<string?> RegisterAsync(RegisterDto dto)
         {
-           
             var existing = await _userRepository.GetByEmailAsync(dto.Email);
             if (existing != null)
                 return null;
-
 
             var user = new User
             {
                 Username = dto.Username,
                 Email = dto.Email,
-                PasswordHash = dto.Password, // 🔐 Hash this in real apps (e.g., BCrypt)
+                PasswordHash = _passwordService.HashPassword(dto.Password),
                 Role = dto.Role
             };
 
@@ -44,14 +53,13 @@ namespace SimpleShop.Services
 
         public async Task<LoginResult> LoginAsync(LoginDto dto)
         {
-           
-            var user = await _userRepository.GetByEmailAsync(dto.Email); // Email is in Username field
+            var user = await _userRepository.GetByEmailAsync(dto.Email);
             if (user == null)
             {
                 return new LoginResult { ErrorMessage = "Wrong email" };
             }
 
-            if (user.PasswordHash != dto.Password) // 🔐 Replace with hash verification in real apps
+            if (!_passwordService.VerifyPassword(dto.Password, user.PasswordHash))
             {
                 return new LoginResult { ErrorMessage = "Wrong password" };
             }
@@ -63,14 +71,68 @@ namespace SimpleShop.Services
 
             htmlBody = htmlBody.Replace("{{USERNAME}}", user.Username);
             await _emailSender.SendEmailAsync(user.Email, "Login Successful", htmlBody);
+
             return new LoginResult { Token = token };
+        }
+
+        public async Task<bool> ForgotPasswordAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null) return false;
+
+            var existing = await _passwordResetRepository.GetByEmailAsync(email);
+            if (existing != null)
+            {
+                await _passwordResetRepository.DeleteAsync(existing);
+            }
+
+            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
+            var reset = new PasswordReset
+            {
+                Email = email,
+                Token = token,
+                ExpiryDate = DateTime.UtcNow.AddHours(1)
+            };
+
+            await _passwordResetRepository.AddAsync(reset);
+
+            var link = $"http://localhost:5019/api/auth/reset-password?token={Uri.EscapeDataString(token)}";
+
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ResetPassword.html");
+            string htmlBody = await File.ReadAllTextAsync(templatePath);
+
+            // Replace placeholder with actual link
+            htmlBody = htmlBody.Replace("{{RESET_LINK}}", link);
+
+            await _emailSender.SendEmailAsync(email, "Reset Your Password", htmlBody);
+
+
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordAsync(string token, string newPassword)
+        {
+            var reset = await _passwordResetRepository.GetByTokenAsync(token);
+            if (reset == null || reset.ExpiryDate < DateTime.UtcNow) return false;
+
+            var user = await _userRepository.GetByEmailAsync(reset.Email);
+            if (user == null) return false;
+
+            user.PasswordHash = _passwordService.HashPassword(newPassword);
+            await _userRepository.UpdateUserAsync(user);
+
+            await _passwordResetRepository.DeleteAsync(reset);
+
+            return true;
         }
 
         private string GenerateToken(User user)
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // 👈 Required to extract userId
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role)

@@ -4,9 +4,8 @@ using SimpleShop.Services.Interfaces;
 
 namespace SimpleShop.Controllers
 {
-    [ApiController]
     [Route("api/auth")]
-    public class AuthController : ControllerBase
+    public class AuthController : Controller
     {
         private readonly IAuthService _authService;
 
@@ -44,6 +43,61 @@ namespace SimpleShop.Controllers
                 message = "User Login Successfully Completed."
             });
         }
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> Forgot([FromBody] ForgotPasswordDto dto)
+        {
+            var result = await _authService.ForgotPasswordAsync(dto.Email);
+            return Ok(result ? "Check your email." : "Invalid email.");
+        }
+
+         // ✅ GET: Render form
+        [HttpGet("reset-password")]
+        public IActionResult ResetPassword(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return BadRequest("Invalid token.");
+            }
+
+            ViewBag.Token = token;
+            return View();
+        }
+
+        // ✅ POST: Handle form submit
+        [HttpPost("reset-password")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(string token, string newPassword, string confirmPassword)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                ModelState.AddModelError("", "Invalid token.");
+                return View();
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                ModelState.AddModelError("", "Passwords do not match.");
+                ViewBag.Token = token;
+                return View();
+            }
+
+            var success = await _authService.ResetPasswordAsync(token, newPassword);
+            if (!success)
+            {
+                ModelState.AddModelError("", "Invalid or expired token.");
+                ViewBag.Token = token;
+                return View();
+            }
+
+            return RedirectToAction("ResetPasswordSuccess");
+        }
+
+        [HttpGet("reset-password-success")]
+        public IActionResult ResetPasswordSuccess()
+        {
+            return View();
+        }
+
 
     }
 }

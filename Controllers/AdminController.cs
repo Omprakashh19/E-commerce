@@ -30,5 +30,7 @@ namespace SimpleShop.Controllers
                 totalRevenue
             });
         }
+
+        
     }
 }
