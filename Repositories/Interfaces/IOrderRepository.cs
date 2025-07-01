@@ -8,6 +8,8 @@ namespace SimpleShop.Repositories.Interfaces
         Task<Order> PlaceOrderAsync(int userId, int shippingAddressId);
         Task<List<Order>> GetOrdersByUserIdAsync(int userId);
         Task<List<Order>> GetAllOrdersAsync();
+        Task<Order?> GetByIdAsync(int id);             // ✅ Add this
+        Task UpdateAsync(Order order);
         Task UpdateOrderStatusAsync(int orderId, string newStatus);
         Task<bool> SimulatePaymentAsync(PaymentUpdateDto dto);
         Task<int?> GetLatestShippingAddressIdAsync(int userId); // 🔁 Added

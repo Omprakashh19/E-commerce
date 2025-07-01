@@ -88,7 +88,7 @@ namespace SimpleShop.Repositories
                 .FirstOrDefaultAsync();
 
             return address?.Id;
-            
+
         }
 
         public async Task<List<Order>> GetOrdersByUserIdAsync(int userId)
@@ -133,6 +133,18 @@ namespace SimpleShop.Repositories
 
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<Order?> GetByIdAsync(int id)
+        {
+            return await _context.Orders.FirstOrDefaultAsync(o => o.Id == id);
+        }
+
+        // ✅ NEW: Implement UpdateAsync
+        public async Task UpdateAsync(Order order)
+        {
+            _context.Orders.Update(order);
+            await _context.SaveChangesAsync();
         }
     }
 
